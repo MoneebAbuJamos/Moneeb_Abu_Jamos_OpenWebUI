@@ -4,6 +4,7 @@ import time
 import datetime
 import logging
 from aiohttp import ClientSession
+from open_webui.licensing.exceptions import LicenseLimitExceeded
 
 from open_webui.models.auths import (
     AddUserForm,
@@ -53,7 +54,11 @@ if ENABLE_LDAP.value:
     from ldap3 import Server, Connection, NONE, Tls
     from ldap3.utils.conv import escape_filter_chars
 
+from open_webui.licensing.license_service import LicenseService
+
 router = APIRouter()
+
+license_service = LicenseService()
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MAIN"])
@@ -441,6 +446,16 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             )
 
     user_count = Users.get_num_users()
+
+    # enforce license limit
+    try:
+        license_service.enforce_user_limit()
+    except LicenseLimitExceeded as e:
+        raise HTTPException(
+            status_code=403,
+            detail=str(e)
+        )
+    
     if not validate_email_format(form_data.email.lower()):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
@@ -576,6 +591,16 @@ async def signout(request: Request, response: Response):
 
 @router.post("/add", response_model=SigninResponse)
 async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
+    
+    # enforce license limit
+    try:
+        license_service.enforce_user_limit()
+    except LicenseLimitExceeded as e:
+        raise HTTPException(
+            status_code=403,
+            detail=str(e)
+    )
+
     if not validate_email_format(form_data.email.lower()):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
