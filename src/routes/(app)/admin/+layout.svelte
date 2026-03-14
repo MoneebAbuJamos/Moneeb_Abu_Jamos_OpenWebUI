@@ -11,11 +11,20 @@
 	let loaded = false;
 
 	onMount(async () => {
-		if ($user?.role !== 'admin') {
-			await goto('/');
-		}
+
+	// انتظر حتى يتم تحميل user من backend
+	if ($user === undefined || $user === null) {
 		loaded = true;
-	});
+		return;
+	}
+
+	if ($user.role !== 'admin') {
+		await goto('/');
+		return;
+	}
+
+	loaded = true;
+    });
 </script>
 
 <svelte:head>
@@ -26,12 +35,12 @@
 
 {#if loaded}
 	<div
-		class=" flex flex-col w-full h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
+		class="flex flex-col w-full h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
 			? 'md:max-w-[calc(100%-260px)]'
 			: ''} max-w-full"
 	>
-		<nav class="   px-2.5 pt-1 backdrop-blur-xl drag-region">
-			<div class=" flex items-center gap-1">
+		<nav class="px-2.5 pt-1 backdrop-blur-xl drag-region">
+			<div class="flex items-center gap-1">
 				<div class="{$showSidebar ? 'md:hidden' : ''} flex flex-none items-center self-end">
 					<button
 						id="sidebar-toggle-button"
@@ -41,49 +50,73 @@
 						}}
 						aria-label="Toggle Sidebar"
 					>
-						<div class=" m-auto self-center">
+						<div class="m-auto self-center">
 							<MenuLines />
 						</div>
 					</button>
 				</div>
 
-				<div class=" flex w-full">
+				<div class="flex w-full">
 					<div
 						class="flex gap-1 scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium rounded-full bg-transparent pt-1"
 					>
+
+						<!-- USERS -->
 						<a
 							class="min-w-fit rounded-full p-1.5 {['/admin/users'].includes($page.url.pathname)
 								? ''
 								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-							href="/admin">{$i18n.t('Users')}</a
+							href="/admin"
 						>
+							{$i18n.t('Users')}
+						</a>
 
+						<!-- EVALUATIONS -->
 						<a
 							class="min-w-fit rounded-full p-1.5 {$page.url.pathname.includes('/admin/evaluations')
 								? ''
 								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-							href="/admin/evaluations">{$i18n.t('Evaluations')}</a
+							href="/admin/evaluations"
 						>
+							{$i18n.t('Evaluations')}
+						</a>
 
+						<!-- FUNCTIONS -->
 						<a
 							class="min-w-fit rounded-full p-1.5 {$page.url.pathname.includes('/admin/functions')
 								? ''
 								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-							href="/admin/functions">{$i18n.t('Functions')}</a
+							href="/admin/functions"
 						>
+							{$i18n.t('Functions')}
+						</a>
 
+						<!-- SETTINGS -->
 						<a
 							class="min-w-fit rounded-full p-1.5 {$page.url.pathname.includes('/admin/settings')
 								? ''
 								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
-							href="/admin/settings">{$i18n.t('Settings')}</a
+							href="/admin/settings"
 						>
+							{$i18n.t('Settings')}
+						</a>
+
+						<!-- AUDIT LOGS -->
+						<a
+							class="min-w-fit rounded-full p-1.5 {$page.url.pathname.includes('/admin/audit')
+								? ''
+								: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							href="/admin/audit"
+						>
+							Audit
+						</a>
+
 					</div>
 				</div>
 			</div>
 		</nav>
 
-		<div class=" pb-1 px-[16px] flex-1 max-h-full overflow-y-auto">
+		<div class="pb-1 px-[16px] flex-1 max-h-full overflow-y-auto">
 			<slot />
 		</div>
 	</div>

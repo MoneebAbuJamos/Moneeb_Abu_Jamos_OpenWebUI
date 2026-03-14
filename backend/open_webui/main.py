@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from urllib.parse import urlencode, parse_qs, urlparse
 from pydantic import BaseModel
 from sqlalchemy import text
+from open_webui.routers.audit import router as audit_router
 
 from typing import Optional
 from aiocache import cached
@@ -970,7 +971,7 @@ app.include_router(
     evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"]
 )
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
-
+app.include_router(audit_router, prefix="/api/v1/audit", tags=["audit"])
 
 try:
     audit_level = AuditLevel(AUDIT_LOG_LEVEL)

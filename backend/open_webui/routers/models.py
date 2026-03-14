@@ -1,4 +1,6 @@
 from typing import Optional
+from open_webui.audit.audit_service import AuditService
+
 
 from open_webui.models.models import (
     ModelForm,
@@ -166,6 +168,17 @@ async def update_model_by_id(
         )
 
     model = Models.update_model_by_id(id, form_data)
+
+    if model:
+        AuditService.log_event(
+            event_type="MODEL_CHANGE",
+            message=f"Model {id} updated",
+            actor_id=user.id,
+            actor_email=user.email,
+            target_type="model",
+            target_id=id
+    )
+        
     return model
 
 

@@ -309,3 +309,18 @@ cypress/screenshots
 .vscode/settings.json
 # private license key
 tools/license_generator/private_key.pem
+
+
+# Frontend build artifacts
+build/
+dist/
+
+# OpenWebUI compiled frontend served by FastAPI
+backend/open_webui/static/
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc

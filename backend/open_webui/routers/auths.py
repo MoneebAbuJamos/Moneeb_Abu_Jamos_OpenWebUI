@@ -5,6 +5,9 @@ import datetime
 import logging
 from aiohttp import ClientSession
 from open_webui.licensing.exceptions import LicenseLimitExceeded
+from open_webui.audit.audit_service import AuditService
+from open_webui.utils.auth import get_current_user
+
 
 from open_webui.models.auths import (
     AddUserForm,
@@ -377,6 +380,14 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
         user = Auths.authenticate_user(form_data.email.lower(), form_data.password)
 
     if user:
+        AuditService.log_event(
+            event_type="USER_LOGIN",
+            message="User logged in",
+            actor_id=user.id,
+            actor_email=user.email,
+            target_type="user",
+            target_id=user.id
+        )
 
         expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
         expires_at = None
@@ -449,7 +460,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 
     # enforce license limit
     try:
-        license_service.enforce_user_limit()
+        license_service.enforce_user_limit(user_count)
     except LicenseLimitExceeded as e:
         raise HTTPException(
             status_code=403,
@@ -488,6 +499,15 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             form_data.profile_image_url,
             role,
         )
+        if user:
+            AuditService.log_event(
+                event_type="user_signup",
+                message="User registered",
+                actor_id=user.id,
+                actor_email=user.email,
+                target_type="user",
+                target_id=user.id
+            )
 
         if user:
             expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
@@ -551,7 +571,22 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 
 
 @router.get("/signout")
-async def signout(request: Request, response: Response):
+async def signout(
+    request: Request,
+    response: Response,
+    user=Depends(get_current_user)
+):
+
+    if user:
+        AuditService.log_event(
+            event_type="USER_LOGOUT",
+            message="User logged out",
+            actor_id=user.id,
+            actor_email=user.email,
+            target_type="user",
+            target_id=user.id
+        )
+
     response.delete_cookie("token")
 
     if ENABLE_OAUTH_SIGNUP.value:
@@ -594,8 +629,16 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
     
     # enforce license limit
     try:
-        license_service.enforce_user_limit()
+        user_count = Users.get_num_users()
+        license_service.enforce_user_limit(user_count)
     except LicenseLimitExceeded as e:
+
+        AuditService.log_event(
+            event_type="LICENSE_LIMIT_EXCEEDED",
+            message="User creation blocked due to license limit",
+            actor_email=user.email
+        )
+        
         raise HTTPException(
             status_code=403,
             detail=str(e)
@@ -620,6 +663,15 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
         )
 
         if user:
+            AuditService.log_event(
+                event_type="admin_user_create",
+                message="Admin created a new user",
+                actor_id=user.id,
+                actor_email=user.email,
+                target_type="user",
+                target_id=user.id
+            )
+            
             token = create_token(data={"id": user.id})
             return {
                 "token": token,

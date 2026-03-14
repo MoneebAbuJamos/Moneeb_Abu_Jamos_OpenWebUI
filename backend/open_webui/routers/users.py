@@ -12,7 +12,7 @@ from open_webui.models.users import (
     UserUpdateForm,
 )
 
-
+from open_webui.audit.audit_service import AuditService
 from open_webui.socket.main import get_active_status_by_user_id
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import SRC_LOG_LEVELS
@@ -144,7 +144,20 @@ async def update_default_user_permissions(
 @router.post("/update/role", response_model=Optional[UserModel])
 async def update_user_role(form_data: UserRoleUpdateForm, user=Depends(get_admin_user)):
     if user.id != form_data.id and form_data.id != Users.get_first_user().id:
-        return Users.update_user_role_by_id(form_data.id, form_data.role)
+
+        updated_user = Users.update_user_role_by_id(form_data.id, form_data.role)
+
+        if updated_user:
+            AuditService.log_event(
+                event_type="ROLE_CHANGE",
+                message=f"Admin changed role to {form_data.role}",
+                actor_id=user.id,
+                actor_email=user.email,
+                target_type="user",
+                target_id=form_data.id
+            )
+
+        return updated_user
 
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -315,6 +328,17 @@ async def update_user_by_id(
         )
 
         if updated_user:
+
+
+            AuditService.log_event(
+                event_type="USER_UPDATE",
+                message="Admin updated user information",
+                actor_id=session_user.id,
+                actor_email=session_user.email,
+                target_type="user",
+                target_id=user_id
+            )
+            
             return updated_user
 
         raise HTTPException(
