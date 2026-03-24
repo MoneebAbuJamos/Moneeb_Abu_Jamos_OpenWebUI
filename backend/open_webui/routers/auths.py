@@ -458,11 +458,12 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 
     user_count = Users.get_num_users()
 
-    # enforce license limit
-    try:
-        license_service.enforce_user_limit(user_count)
-    except LicenseLimitExceeded as e:
-        raise HTTPException(
+    # ✅ allow first admin user
+    if user_count > 0:
+        try:
+            license_service.enforce_user_limit(user_count)
+        except LicenseLimitExceeded as e:
+            raise HTTPException(
             status_code=403,
             detail=str(e)
         )
@@ -480,9 +481,7 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             "admin" if user_count == 0 else request.app.state.config.DEFAULT_USER_ROLE
         )
 
-        if user_count == 0:
-            # Disable signup after the first user is created
-            request.app.state.config.ENABLE_SIGNUP = False
+      
 
         # The password passed to bcrypt must be 72 bytes or fewer. If it is longer, it will be truncated before hashing.
         if len(form_data.password.encode("utf-8")) > 72:
@@ -499,6 +498,11 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             form_data.profile_image_url,
             role,
         )
+
+        if user_count == 0 and user:
+            request.app.state.config.ENABLE_SIGNUP = False
+
+
         if user:
             AuditService.log_event(
                 event_type="user_signup",
@@ -567,7 +571,8 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
             raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
     except Exception as err:
         log.error(f"Signup error: {str(err)}")
-        raise HTTPException(500, detail="An internal error occurred during signup.")
+        print("🔥 SIGNUP ERROR:", err)
+        raise HTTPException(500, detail=str(err))
 
 
 @router.get("/signout")

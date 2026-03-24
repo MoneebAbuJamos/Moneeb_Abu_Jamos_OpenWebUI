@@ -1,10 +1,29 @@
-__pycache__
+# Python
+__pycache__/
+*.pyc
+
+# Env
 .env
-_old
-uploads
-.ipynb_checkpoints
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data & DB (IMPORTANT)
+backend/data/
 *.db
-_test
-Pipfile
+
+# OpenWebUI internal data
 /open_webui/data/*
+
+# Temp / test
+_old/
+_test/
+
+# Uploads
+uploads/
+
+# Secrets
 .webui_secret_key
+
+# Optional
+Pipfile

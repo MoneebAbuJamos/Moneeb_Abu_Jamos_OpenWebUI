@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime
-from open_webui.internal.db import Base, JSONField
+from sqlalchemy import Column, String, DateTime, inspect
+from open_webui.internal.db import Base, JSONField, engine
 
 
 class AuditLog(Base):
@@ -23,3 +23,16 @@ class AuditLog(Base):
     event_metadata = Column(JSONField, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+# ============================
+# ✅ AUTO CREATE TABLE (FIX)
+# ============================
+try:
+    inspector = inspect(engine)
+
+    if "audit_logs" not in inspector.get_table_names():
+        AuditLog.__table__.create(bind=engine)
+        print("✅ audit_logs table created")
+except Exception as e:
+    print("⚠️ audit_logs init error:", e)

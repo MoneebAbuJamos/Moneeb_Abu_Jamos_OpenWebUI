@@ -3,6 +3,8 @@ import logging
 from contextlib import contextmanager
 from typing import Any, Optional
 
+from pathlib import Path  # ✅ NEW
+
 from open_webui.internal.wrappers import register_connection
 from open_webui.env import (
     OPEN_WEBUI_DIR,
@@ -24,6 +26,19 @@ from typing_extensions import Self
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["DB"])
+
+
+# ============================
+# ✅ FIX: Ensure DB folder exists
+# ============================
+if "sqlite" in DATABASE_URL:
+    db_path = DATABASE_URL.replace("sqlite:///", "")
+    db_file = Path(db_path)
+
+    # create folder if not exists
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+
+    print("✅ DB directory ensured:", db_file.parent)
 
 
 class JSONField(types.TypeDecorator):
@@ -48,12 +63,12 @@ class JSONField(types.TypeDecorator):
             return json.loads(value)
 
 
-# Workaround to handle the peewee migration
-# This is required to ensure the peewee migration is handled before the alembic migration
+# ============================
+# Peewee Migration Handler
+# ============================
 def handle_peewee_migration(DATABASE_URL):
-    # db = None
+    db = None
     try:
-        # Replace the postgresql:// with postgres:// to handle the peewee migration
         db = register_connection(DATABASE_URL.replace("postgresql://", "postgres://"))
         migrate_dir = OPEN_WEBUI_DIR / "internal" / "migrations"
         router = Router(db, logger=log, migrate_dir=migrate_dir)
@@ -63,22 +78,28 @@ def handle_peewee_migration(DATABASE_URL):
     except Exception as e:
         log.error(f"Failed to initialize the database connection: {e}")
         raise
+
     finally:
-        # Properly closing the database connection
         if db and not db.is_closed():
             db.close()
 
-        # Assert if db connection has been closed
-        assert db.is_closed(), "Database connection is still open."
+        if db:
+            assert db.is_closed(), "Database connection is still open."
 
 
+# ✅ run migration AFTER ensuring folder exists
 handle_peewee_migration(DATABASE_URL)
 
 
+# ============================
+# SQLAlchemy Setup
+# ============================
 SQLALCHEMY_DATABASE_URL = DATABASE_URL
+
 if "sqlite" in SQLALCHEMY_DATABASE_URL:
     engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False}
     )
 else:
     if DATABASE_POOL_SIZE > 0:
@@ -93,15 +114,22 @@ else:
         )
     else:
         engine = create_engine(
-            SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, poolclass=NullPool
+            SQLALCHEMY_DATABASE_URL,
+            pool_pre_ping=True,
+            poolclass=NullPool
         )
 
 
 SessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, expire_on_commit=False
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    expire_on_commit=False
 )
+
 metadata_obj = MetaData(schema=DATABASE_SCHEMA)
 Base = declarative_base(metadata=metadata_obj)
+
 Session = scoped_session(SessionLocal)
 
 
